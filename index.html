@@ -110,10 +110,11 @@ $("#cats").innerHTML=r.length?r.map(([c,i])=>`<button class="c" data-k="${i}" st
 function openDlg(k,pre){const f=D[L].f;let h=`<h3 style="margin-top:0;color:var(--p)">${f[k]}</h3>`;const inp=(l,ty="text")=>`<label>${l}</label><input type="${ty}" required>`;
 if(k=="post")h+=inp(f.name)+inp(f.phone,"tel")+`<label>${f.cat}</label><select>${C.map((c,i)=>`<option ${pre==i?"selected":""}>${L=="ne"?c[1]:c[2]}</option>`).join("")}</select><label>${f.desc}</label><textarea rows="3" required></textarea>`;
 else if(k=="reg")h+=inp(f.name)+inp(f.email,"email")+inp(f.phone,"tel")+inp(f.pw,"password");else h+=inp(f.email,"email")+inp(f.pw,"password")+`<button type="button" class="btn o" style="padding:6px 10px;font-size:12px;margin-top:8px" onclick="doReset()">${f.forgot}</button>`;
-const au=k!="post";h+=(au?'':`<p class="note">${f.note}</p>`)+`<p id="amsg" class="note" style="color:#c0392b"></p><div style="display:flex;gap:8px"><button class="btn" value="ok">${f.send}</button><button class="btn o" value="x" formnovalidate>${f.close}</button></div>`;
-$("#df").innerHTML=h;$("#df").onsubmit=e=>{if(e.submitter&&e.submitter.value=="ok"){if(au){e.preventDefault();doAuth(k)}else alert(f.ok)}};$("#dlg").showModal()}
+const au=k!="post";h+=`<p id="amsg" class="note" style="color:#c0392b"></p><div style="display:flex;gap:8px"><button class="btn" value="ok">${f.send}</button><button class="btn o" value="x" formnovalidate>${f.close}</button></div>`;
+$("#df").innerHTML=h;$("#df").onsubmit=e=>{if(e.submitter&&e.submitter.value=="ok"){e.preventDefault();if(au)doAuth(k);else doRequest()}};$("#dlg").showModal()}
 function errMsg(c){const m={"auth/email-already-in-use":["यो इमेल पहिले नै दर्ता छ।","This email is already registered."],"auth/invalid-credential":["इमेल वा पासवर्ड मिलेन।","Incorrect email or password."],"auth/weak-password":["पासवर्ड कम्तीमा ६ अक्षरको हुनुपर्छ।","Password must be at least 6 characters."],"auth/invalid-email":["इमेल मान्य छैन।","Invalid email address."],"auth/too-many-requests":["धेरै प्रयास भयो, पछि प्रयास गर्नुहोस्।","Too many attempts, try later."],"auth/network-request-failed":["नेटवर्क समस्या।","Network error."],"auth/operation-not-allowed":["Firebase Console मा Email/Password सक्षम गर्नुहोस्।","Enable Email/Password sign-in in Firebase Console."]}[c];return m?m[L=="ne"?0:1]:(c||"Error")}
 async function doAuth(k){const m=$("#amsg"),v=[...$("#df").querySelectorAll("input")].map(i=>i.value.trim());m.style.color="#c0392b";if(!window.gmAuth){m.textContent=D[L].f.noauth;return}m.textContent="…";try{await window.gmAuth(k,k=="reg"?{name:v[0],email:v[1],phone:v[2],pw:v[3]}:{email:v[0],pw:v[1]});$("#dlg").close()}catch(e){m.textContent=errMsg(e.code)}}
+async function doRequest(){const m=$("#amsg"),v=[...$("#df").querySelectorAll("input")].map(i=>i.value.trim()),ds=$("#df textarea").value.trim(),ne=L=="ne";m.style.color="#c0392b";if(!window.gmRequest){m.textContent=ne?"डाटाबेस सेवा उपलब्ध छैन।":"Database service unavailable.";return}if(!v[0]||!v[1]||!ds){m.textContent=ne?"सबै विवरण भर्नुहोस्।":"Please fill all fields.";return}m.textContent="…";try{const no=await window.gmRequest({name:v[0],phone:v[1],category:$("#df select").value,description:ds});m.style.color="#159B57";m.textContent=(ne?"अनुरोध सुरक्षित भयो। अनुरोध नं: ":"Request saved. Request no: ")+no}catch(e){m.textContent=e.code=="permission-denied"?(ne?"अनुमति छैन — Firestore नियम प्रकाशित गर्नुहोस्।":"Permission denied — publish the Firestore rules."):(e.code||"Error")}}
 async function doReset(){const m=$("#amsg"),f=D[L].f,em=$("#df").querySelector("input").value.trim();m.style.color="#c0392b";if(!window.gmAuth){m.textContent=f.noauth;return}if(!em){m.textContent=f.needem;return}try{await window.gmAuth("reset",{email:em});m.style.color="#159B57";m.textContent=f.resetok}catch(e){m.textContent=errMsg(e.code)}}
 $("#lang").onclick=()=>{L=L=="ne"?"en":"ne";try{localStorage.setItem("lang",L)}catch(e){}render()};
 $("#q").oninput=cats;$("#typ").onchange=cats;$("#sf").onsubmit=e=>{e.preventDefault();cats();$("#svc").scrollIntoView()};
@@ -125,6 +126,7 @@ render();
   import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
   import { getAnalytics } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-analytics.js";
   import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail, updateProfile } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js";
+  import { getFirestore, doc, setDoc, addDoc, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
   // TODO: Add SDKs for Firebase products that you want to use
   // https://firebase.google.com/docs/web/setup#available-libraries
 
@@ -146,14 +148,21 @@ render();
 
   // Firebase Authentication (enable Email/Password in Firebase Console > Authentication > Sign-in method)
   const auth = getAuth(app);
+  const db = getFirestore(app);
   window.gmAuth = async (k, d) => {
     if (k === "reg") {
       const c = await createUserWithEmailAndPassword(auth, d.email, d.pw);
       await updateProfile(c.user, { displayName: d.name });
+      try { await setDoc(doc(db, "users", c.user.uid), { name: d.name, email: d.email, phone: d.phone, role: "customer", createdAt: serverTimestamp() }); } catch (e) { console.error("Profile save failed", e); }
     } else if (k === "login") await signInWithEmailAndPassword(auth, d.email, d.pw);
     else if (k === "reset") await sendPasswordResetEmail(auth, d.email);
   };
   window.gmOut = () => signOut(auth);
+  window.gmRequest = async (d) => {
+    const no = "GM-" + Date.now().toString(36).toUpperCase();
+    await addDoc(collection(db, "requests"), { ...d, requestNo: no, uid: auth.currentUser ? auth.currentUser.uid : null, status: "NEW", createdAt: serverTimestamp() });
+    return no;
+  };
   onAuthStateChanged(auth, (u) => {
     const $ = (i) => document.getElementById(i);
     $("bReg").style.display = $("bLogin").style.display = u ? "none" : "";
