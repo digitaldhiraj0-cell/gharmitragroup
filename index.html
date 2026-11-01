@@ -107,7 +107,7 @@ $("#lang").textContent=L=="ne"?"EN":"नेपाली";
 $("#loc").innerHTML=`<option value="">${t.allloc}</option>`+LOCS.map(x=>`<option>${x}</option>`).join("");
 $("#typ").innerHTML=`<option value="">${t.alltyp}</option>`+C.map((c,i)=>`<option value="${i}">${L=="ne"?c[1]:c[2]}</option>`).join("");
 $("#pl").innerHTML=t.pl.map(x=>`<li>${x}</li>`).join("");
-$("#dm").innerHTML=C.slice(0,12).map((c,i)=>`<a href="${({0:"building-construction.html",3:"plumbing.html",4:"electrical.html",5:"tiles.html"})[i]||"#svc"}" ${[0,3,4,5].includes(i)?`target="_blank" rel="noopener"`:`onclick="pick(${i})"`}>${L=="ne"?c[1]:c[2]}</a>`).join("");
+$("#dm").innerHTML=C.slice(0,12).map((c,i)=>`<a href="${({0:"building-construction.html",3:"plumbing.html",4:"electrical.html",5:"tiles.html",6:"marble.html"})[i]||"#svc"}" ${[0,3,4,5,6].includes(i)?`target="_blank" rel="noopener"`:`onclick="pick(${i})"`}>${L=="ne"?c[1]:c[2]}</a>`).join("");
 $("#mini").innerHTML=t.mini.map(m=>`<div><span>${m[0]}</span>${m[1]}</div>`).join("");
 $("#steps").innerHTML=t.steps.map((s,i)=>(i?'<div class="ar">›</div>':'')+`<div class="st"><div class="ic">${s[0]}</div><b><em>${i+1}</em>${s[1]}</b>${s[2]}</div>`).join("");
 $("#stats").innerHTML=t.stats.map(s=>`<div><i>${s[0]}</i><div><b>${s[1]}</b><span>${s[2]}</span></div></div>`).join("");
